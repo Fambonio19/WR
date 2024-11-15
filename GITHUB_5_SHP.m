@@ -27,12 +27,11 @@ function [lat, lon] = pixel_to_wgs84(row, col, lat_min, lat_max, lon_min, lon_ma
     lon = lon_min + (col * res_lon);
 end
 
-function pixel_coord = wgs84_to_pixel(lat, lon, lat_min, lat_max, lon_min, lon_max, res_lat, res_lon, rows, cols)
+function [row, col] = wgs84_to_pixel(lat, lon, lat_min, lat_max, lon_min, lon_max, res_lat, res_lon, rows, cols)
     row = round((lat_max - lat) / res_lat);
     col = round((lon - lon_min) / res_lon);
     row = max(1, min(row, rows));
     col = max(1, min(col, cols));
-    pixel_coord = [row, col];
 end
 
 function speed = calculate_speed(wave_height, wave_direction, wind_speed, current_speed, ship_heading, ship_speed_calm)
