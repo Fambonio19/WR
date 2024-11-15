@@ -64,7 +64,7 @@ function speed = calculate_speed(wave_height, wave_direction, wind_speed, curren
     
     % Calcola la velocità finale
     speed = ship_speed_calm * speed_reduction - wind_effect - current_effect;
-    speed = max(speed, 0); % Assicurarsi che la velocità non sia negativa
+    speed = max(speed, 0.1); % Ensure speed is not zero or negative
 end
 
 function [route, total_time] = astar(speed_grid, start_point, end_point, uno_data)
@@ -123,6 +123,9 @@ function [route, total_time] = astar(speed_grid, start_point, end_point, uno_dat
 
     route = [];
     total_time = cost(end_point(1), end_point(2));
+    if isinf(total_time)
+        error('No valid path found, resulting in infinite time');
+    end
     point = end_point;
 
     while ~isempty(point)
@@ -131,10 +134,24 @@ function [route, total_time] = astar(speed_grid, start_point, end_point, uno_dat
     end
 end
 
-function [lat, lon] = loxodromic_interpolation(start_lat, start_lon, end_lat, end_lon, num_points)
+function [lat, lon] = loxodromic_interpolation(start_lat, start_lon, end_lat, end_lon, num_points, uno_data, res_lat, res_lon, lat_min, lat_max, lon_min, lon_max)
     % Interpolazione loxodromica tra due punti
     lat = linspace(start_lat, end_lat, num_points);
     lon = linspace(start_lon, end_lon, num_points);
+    
+    % Ensure the route does not pass through no-data areas
+    valid_route = true;
+    for i = 1:num_points
+        [pixel_row, pixel_col] = wgs84_to_pixel(lat(i), lon(i), lat_min, lat_max, lon_min, lon_max, res_lat, res_lon, size(uno_data, 1), size(uno_data, 2));
+        if uno_data(pixel_row, pixel_col) ~= 1
+            valid_route = false;
+            break;
+        end
+    end
+    
+    if ~valid_route
+        error('Loxodromic route passes through no-data areas');
+    end
 end
 
 % Initial Plot
@@ -150,7 +167,7 @@ plot(end_lon, end_lat, 'ro', 'MarkerSize', 10, 'DisplayName', 'End');
 
 % Generate loxodromic route
 num_points = 100; % Define how many points to interpolate
-[loxodromic_lat, loxodromic_lon] = loxodromic_interpolation(start_lat, start_lon, end_lat, end_lon, num_points);
+[loxodromic_lat, loxodromic_lon] = loxodromic_interpolation(start_lat, start_lon, end_lat, end_lon, num_points, uno_data, (lat_max - lat_min) / size(uno_data, 1), (lon_max - lon_min) / size(uno_data, 2), lat_min, lat_max, lon_min, lon_max);
 plot(loxodromic_lon, loxodromic_lat, 'b-', 'LineWidth', 1.5, 'DisplayName', 'Loxodromic Route (OR)');
 
 % Calculate the time for the loxodromic route
