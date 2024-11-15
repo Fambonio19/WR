@@ -16,6 +16,10 @@ total_time_with_astar = 0; % Initialize total travel time
 
 % Define path to files
 file_path = "C:\Users\Univ ' Parthenope '\Documents\MATLAB";
+uno_file = fullfile(file_path, 'UNO.tif');
+
+% Load UNO.tif
+uno_data = imread(uno_file);
 
 % Helper Functions
 function [lat, lon] = pixel_to_wgs84(row, col, lat_min, lat_max, lon_min, lon_max, res_lat, res_lon)
@@ -63,7 +67,7 @@ function speed = calculate_speed(wave_height, wave_direction, wind_speed, curren
     speed = max(speed, 0); % Assicurarsi che la velocità non sia negativa
 end
 
-function [route, total_time] = astar(speed_grid, start_point, end_point)
+function [route, total_time] = astar(speed_grid, start_point, end_point, uno_data)
     [rows, cols] = size(speed_grid);
     
     % Verifica che i punti di partenza e arrivo siano validi
@@ -102,13 +106,16 @@ function [route, total_time] = astar(speed_grid, start_point, end_point)
         for d = 1:size(directions, 1)
             new_point = cur_point + directions(d, :);
             if new_point(1) > 0 && new_point(1) <= rows && new_point(2) > 0 && new_point(2) <= cols
-                new_cost = cost(cur_point(1), cur_point(2)) + (1 / speed_grid(new_point(1), new_point(2)));
-                new_heuristic = new_cost + haversine(new_point(1), new_point(2), end_point(1), end_point(2));
-                if new_heuristic < heuristic(new_point(1), new_point(2))
-                    cost(new_point(1), new_point(2)) = new_cost;
-                    heuristic(new_point(1), new_point(2)) = new_heuristic;
-                    prev{new_point(1), new_point(2)} = cur_point;
-                    pq = [pq; new_heuristic, new_point];
+                % Check if the new point is on a valid path in UNO.tif
+                if uno_data(new_point(1), new_point(2)) == 1
+                    new_cost = cost(cur_point(1), cur_point(2)) + (1 / speed_grid(new_point(1), new_point(2)));
+                    new_heuristic = new_cost + haversine(new_point(1), new_point(2), end_point(1), end_point(2));
+                    if new_heuristic < heuristic(new_point(1), new_point(2))
+                        cost(new_point(1), new_point(2)) = new_cost;
+                        heuristic(new_point(1), new_point(2)) = new_heuristic;
+                        prev{new_point(1), new_point(2)} = cur_point;
+                        pq = [pq; new_heuristic, new_point];
+                    end
                 end
             end
         end
@@ -198,7 +205,7 @@ for i = 1:length(time_stamps)
         end
     end
 
-    [optimal_route, segment_time] = astar(speed_grid, start_point, end_point);
+    [optimal_route, segment_time] = astar(speed_grid, start_point, end_point, uno_data);
     total_time_with_astar = total_time_with_astar + segment_time;
 
     % Store the optimal route
@@ -238,6 +245,8 @@ function distance = haversine(lat1, lon1, lat2, lon2)
     d_lat = deg2rad(lat2 - lat1);
     d_lon = deg2rad(lon2 - lon1);
     a = sin(d_lat / 2) ^ 2 + cos(deg2rad(lat1)) * cos(deg2rad(lat2)) * sin(d_lon / 2) ^ 2;
+    % Ensure inputs to atan2 are real
+    a = max(min(a, 1), 0);
     c = 2 * atan2(sqrt(a), sqrt(1 - a));
     distance = R * c; % Distance in nautical miles
 end
